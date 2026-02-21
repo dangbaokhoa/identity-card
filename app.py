@@ -12,7 +12,8 @@ from docxtpl import DocxTemplate
 
 st.set_page_config(page_title="ID Card QR Reader", page_icon="🪪", layout="centered")
 st.title("🪪 Đọc thông tin CCCD từ mã QR")
-st.caption("Tải mẫu Word + ảnh mặt SAU (có QR code) của CCCD, xem kết quả, sau đó tải tất cả file kết quả.")
+st.caption("Tải mẫu Word + ảnh thẻ CCCD (có QR code), xem kết quả, sau đó tải tất cả file kết quả.")
+st.info("💡 Mã QR thường ở góc thẻ CCCD. Chụp rõ toàn bộ thẻ để detect tốt nhất.")
 
 
 @st.cache_resource
@@ -100,9 +101,9 @@ uploaded_template = st.file_uploader(
     key="template_required",
 )
 
-st.subheader("2) Tải ảnh mặt SAU CCCD (có mã QR)")
+st.subheader("2) Tải ảnh thẻ CCCD")
 uploaded_images = st.file_uploader(
-    "Tải lên một hoặc nhiều ảnh mặt SAU CCCD (có QR code)",
+    "Tải lên một hoặc nhiều ảnh thẻ CCCD (chụp rõ mã QR)",
     type=["jpg", "jpeg", "png", "webp"],
     accept_multiple_files=True,
     key="batch_images",
@@ -131,7 +132,7 @@ if st.button("Đọc mã QR", type="primary", disabled=not can_extract):
 if uploaded_template is None:
     st.info("Vui lòng tải mẫu Word để tiếp tục.")
 elif not uploaded_images:
-    st.info("Vui lòng tải lên ít nhất một ảnh mặt SAU CCCD (có QR code) để tiếp tục.")
+    st.info("Vui lòng tải lên ít nhất một ảnh thẻ CCCD để tiếp tục.")
 
 if st.session_state["batch_results"]:
     st.subheader("3) Xem và chỉnh kết quả")
@@ -177,4 +178,4 @@ if st.session_state["batch_results"]:
         )
 
 st.markdown("---")
-st.caption("Mẹo: Dùng ảnh mặt trước rõ nét. Bạn có thể sửa từng trường trước khi tải file.")
+st.caption("💡 Mẹo: Chụp rõ toàn bộ thẻ để mã QR dễ detect. Bạn có thể sửa từng trường trước khi tải file.")

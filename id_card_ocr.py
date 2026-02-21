@@ -42,7 +42,7 @@ class IDCardQRReader:
             return ""
     
     def read_qr_code(self, image_path):
-        """Read QR code from ID card image"""
+        """Read QR code from ID card image with multiple preprocessing strategies"""
         print(f"[IDCardQRReader] Reading QR code from: {image_path}")
         
         if not os.path.exists(image_path):
@@ -59,24 +59,69 @@ class IDCardQRReader:
         
         print("[IDCardQRReader] Image loaded, detecting QR code...")
         
-        # Try pyzbar first (more reliable)
+        # Strategy: Try multiple preprocessing variants
+        variants = []
+        
+        # 1. Original image
+        variants.append(("original", img))
+        
+        # 2. Grayscale
+        gray = self.cv2.cvtColor(img, self.cv2.COLOR_BGR2GRAY)
+        variants.append(("grayscale", gray))
+        
+        # 3. Enhanced contrast
+        clahe = self.cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        enhanced = clahe.apply(gray)
+        variants.append(("enhanced", enhanced))
+        
+        # 4. Binary threshold
+        _, binary = self.cv2.threshold(gray, 127, 255, self.cv2.THRESH_BINARY)
+        variants.append(("binary", binary))
+        
+        # 5. Adaptive threshold
+        adaptive = self.cv2.adaptiveThreshold(
+            gray, 255, self.cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+            self.cv2.THRESH_BINARY, 11, 2
+        )
+        variants.append(("adaptive", adaptive))
+        
+        # 6. Upscaled version (for small QR codes)
+        height, width = img.shape[:2]
+        if max(height, width) < 1500:
+            scale_factor = 1500 / max(height, width)
+            new_width = int(width * scale_factor)
+            new_height = int(height * scale_factor)
+            upscaled = self.cv2.resize(img, (new_width, new_height), interpolation=self.cv2.INTER_CUBIC)
+            variants.append(("upscaled", upscaled))
+            
+            upscaled_gray = self.cv2.cvtColor(upscaled, self.cv2.COLOR_BGR2GRAY)
+            variants.append(("upscaled_gray", upscaled_gray))
+        
+        # Try pyzbar on all variants
         if self.pyzbar:
-            decoded_objects = self.pyzbar.decode(img)
-            if decoded_objects:
-                qr_data = decoded_objects[0].data.decode('utf-8')
-                print(f"[IDCardQRReader] ✓ QR decoded with pyzbar: {qr_data[:50]}...")
-                return qr_data
+            for name, variant in variants:
+                print(f"[IDCardQRReader] Trying pyzbar on {name}...")
+                decoded_objects = self.pyzbar.decode(variant)
+                if decoded_objects:
+                    qr_data = decoded_objects[0].data.decode('utf-8')
+                    print(f"[IDCardQRReader] ✓ QR decoded with pyzbar ({name}): {qr_data[:50]}...")
+                    return qr_data
         
-        # Fallback to cv2 QR detector
+        # Fallback to cv2 QR detector on all variants
         qr_detector = self.cv2.QRCodeDetector()
-        data, bbox, _ = qr_detector.detectAndDecode(img)
+        for name, variant in variants:
+            print(f"[IDCardQRReader] Trying cv2 on {name}...")
+            # Convert to BGR if grayscale
+            if len(variant.shape) == 2:
+                variant = self.cv2.cvtColor(variant, self.cv2.COLOR_GRAY2BGR)
+            
+            data, bbox, _ = qr_detector.detectAndDecode(variant)
+            if data:
+                print(f"[IDCardQRReader] ✓ QR decoded with cv2 ({name}): {data[:50]}...")
+                return data
         
-        if data:
-            print(f"[IDCardQRReader] ✓ QR decoded with cv2: {data[:50]}...")
-            return data
-        
-        print("[IDCardQRReader] ✗ No QR code found in image")
-        raise ValueError("Không tìm thấy mã QR trên ảnh. Vui lòng chụp rõ mã QR phía sau thẻ CCCD.")
+        print("[IDCardQRReader] ✗ No QR code found after trying all variants")
+        raise ValueError("Không tìm thấy mã QR trên ảnh. Vui lòng chụp rõ mã QR trên thẻ CCCD. Mã QR thường nằm ở góc của thẻ.")
     
     def parse_qr_data(self, qr_string):
         """
