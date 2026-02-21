@@ -17,8 +17,11 @@ st.caption("Tải mẫu Word + nhiều ảnh CCCD, xem kết quả, sau đó t�
 
 @st.cache_resource
 def get_ocr_engine():
+    print("[APP] Loading OCR engine (cached resource)...")
     from id_card_ocr import IDCardOCR
-    return IDCardOCR()
+    ocr = IDCardOCR()
+    print("[APP] ✓ OCR engine initialized (Reader will load on first use)")
+    return ocr
 
 
 def generate_docx_from_template(data: dict, template_bytes: bytes) -> bytes:
@@ -44,17 +47,24 @@ def generate_docx_from_template(data: dict, template_bytes: bytes) -> bytes:
 
 
 def run_ocr_on_upload(uploaded_file):
+    print(f"[APP] Processing uploaded file: {uploaded_file.name}")
     suffix = os.path.splitext(uploaded_file.name)[1].lower() or ".jpg"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_image:
         temp_image.write(uploaded_file.getbuffer())
         temp_image_path = temp_image.name
 
     try:
+        print("[APP] Getting OCR engine...")
         ocr_engine = get_ocr_engine()
+        print("[APP] Running OCR pipeline...")
         preprocessed = ocr_engine.preprocess_image(temp_image_path)
         raw_text = ocr_engine.extract_text(preprocessed)
         data = ocr_engine.parse_data(raw_text)
+        print(f"[APP] ✓ OCR complete for {uploaded_file.name}")
         return data
+    except Exception as e:
+        print(f"[APP] ✗ Error processing {uploaded_file.name}: {e}")
+        raise
     finally:
         if os.path.exists(temp_image_path):
             os.remove(temp_image_path)
@@ -102,10 +112,12 @@ uploaded_images = st.file_uploader(
 
 can_extract = uploaded_template is not None and uploaded_images
 if st.button("Trích xuất thông tin", type="primary", disabled=not can_extract):
+    print(f"[APP] Starting batch OCR for {len(uploaded_images)} images...")
     with st.spinner("Đang chạy OCR cho các ảnh..."):
         results = []
-        for image_file in uploaded_images:
+        for idx, image_file in enumerate(uploaded_images):
             try:
+                print(f"[APP] Processing image {idx+1}/{len(uploaded_images)}: {image_file.name}")
                 extracted = run_ocr_on_upload(image_file)
                 extracted = apply_template_aliases(extracted)
                 results.append({
@@ -113,8 +125,10 @@ if st.button("Trích xuất thông tin", type="primary", disabled=not can_extrac
                     "data": extracted,
                 })
             except Exception as error:
+                print(f"[APP] ✗ Failed to process {image_file.name}: {error}")
                 st.error(f"Không thể xử lý ảnh {image_file.name}: {error}")
         st.session_state["batch_results"] = results
+        print(f"[APP] ✓ Batch OCR complete: {len(results)} successful")
 
 if uploaded_template is None:
     st.info("Vui lòng tải mẫu Word để tiếp tục.")

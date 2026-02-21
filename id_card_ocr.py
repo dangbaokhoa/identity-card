@@ -6,31 +6,47 @@ import unicodedata
 
 class IDCardOCR:
     def __init__(self):
+        print("[IDCardOCR] Initializing OCR class...")
         self.reader = None
         self.easyocr_module = None
         try:
+            print("[IDCardOCR] Attempting to import easyocr...")
             import easyocr as easyocr_module
             self.easyocr_module = easyocr_module
-        except Exception:
+            print("[IDCardOCR] ✓ EasyOCR module imported successfully")
+        except Exception as e:
+            print(f"[IDCardOCR] ✗ Failed to import easyocr: {e}")
             self.easyocr_module = None
 
         self.cv2 = None
         try:
+            print("[IDCardOCR] Attempting to import cv2...")
             import cv2 as cv2_module
             self.cv2 = cv2_module
-        except Exception:
+            print("[IDCardOCR] ✓ CV2 module imported successfully")
+        except Exception as e:
+            print(f"[IDCardOCR] ✗ Failed to import cv2: {e}")
             self.cv2 = None
+        
+        print("[IDCardOCR] Initialization complete (lazy mode - Reader not loaded yet)")
 
     def _get_reader(self):
         if self.reader is not None:
+            print("[IDCardOCR] Reader already loaded, reusing...")
             return self.reader
 
         if self.easyocr_module is None:
+            print("[IDCardOCR] ✗ EasyOCR module not available!")
             raise RuntimeError("EasyOCR chưa khả dụng trong môi trường hiện tại.")
 
-        print("Loading OCR Engine... (this may take a moment)")
-        self.reader = self.easyocr_module.Reader(['vi', 'en'], gpu=False)
-        return self.reader
+        print("[IDCardOCR] Loading OCR Engine... (this may take 30-60 seconds)")
+        try:
+            self.reader = self.easyocr_module.Reader(['vi', 'en'], gpu=False)
+            print("[IDCardOCR] ✓ OCR Engine loaded successfully!")
+            return self.reader
+        except Exception as e:
+            print(f"[IDCardOCR] ✗ Failed to load OCR Reader: {e}")
+            raise
 
     @staticmethod
     def _normalize_text(text):
@@ -220,10 +236,13 @@ class IDCardOCR:
         return False
 
     def preprocess_image(self, image_path):
+        print(f"[IDCardOCR] Preprocessing image: {image_path}")
         if not os.path.exists(image_path):
+            print(f"[IDCardOCR] ✗ Image not found: {image_path}")
             raise FileNotFoundError(f"Cannot find image: {image_path}")
 
         if self.cv2 is None:
+            print("[IDCardOCR] ⚠ CV2 not available, skipping preprocessing")
             return {
                 "original_path": image_path,
             }
@@ -245,6 +264,7 @@ class IDCardOCR:
             7,
         )
 
+        print("[IDCardOCR] ✓ Image preprocessing complete")
         return {
             "original": img,
             "processed": thresh,
@@ -253,7 +273,9 @@ class IDCardOCR:
         }
 
     def extract_text(self, image):
+        print("[IDCardOCR] Starting text extraction...")
         reader = self._get_reader()
+        print("[IDCardOCR] Reader obtained, processing image variants...")
         variants = []
         if isinstance(image, dict):
             variants = [
@@ -297,9 +319,11 @@ class IDCardOCR:
             return (min(ys), min(xs))
 
         merged.sort(key=reading_order_key)
+        print(f"[IDCardOCR] ✓ Extracted {len(merged)} text items")
         return merged
 
     def parse_data(self, text_list):
+        print("[IDCardOCR] Parsing extracted text data...")
         lines = []
         if text_list and isinstance(text_list[0], (list, tuple)):
             for item in text_list:
@@ -566,6 +590,7 @@ class IDCardOCR:
         data["noi_thuong_tru"] = data["residence"]
         data["co_gia_tri_den"] = data["expiry_date"]
 
+        print("[IDCardOCR] ✓ Parsing complete")
         return data
 
 # --- NEW FUNCTION TO FILL WORD FILE ---
