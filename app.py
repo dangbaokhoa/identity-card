@@ -3,6 +3,9 @@ import tempfile
 import zipfile
 from io import BytesIO
 
+os.environ.setdefault("STREAMLIT_SERVER_FILE_WATCHER_TYPE", "none")
+os.environ.setdefault("STREAMLIT_SERVER_RUN_ON_SAVE", "false")
+
 import streamlit as st
 from docxtpl import DocxTemplate
 

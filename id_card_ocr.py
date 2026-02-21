@@ -1,4 +1,3 @@
-import cv2
 import easyocr
 import re
 from collections import Counter
@@ -10,6 +9,12 @@ class IDCardOCR:
     def __init__(self):
         print("Loading OCR Engine... (this may take a moment)")
         self.reader = easyocr.Reader(['vi', 'en'], gpu=False)
+        self.cv2 = None
+        try:
+            import cv2 as cv2_module
+            self.cv2 = cv2_module
+        except Exception:
+            self.cv2 = None
 
     @staticmethod
     def _normalize_text(text):
@@ -199,19 +204,27 @@ class IDCardOCR:
         return False
 
     def preprocess_image(self, image_path):
-        img = cv2.imread(image_path)
+        if not os.path.exists(image_path):
+            raise FileNotFoundError(f"Cannot find image: {image_path}")
+
+        if self.cv2 is None:
+            return {
+                "original_path": image_path,
+            }
+
+        img = self.cv2.imread(image_path)
         if img is None:
             raise FileNotFoundError(f"Cannot find image: {image_path}")
 
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        denoised = cv2.fastNlMeansDenoising(gray, h=10)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        gray = self.cv2.cvtColor(img, self.cv2.COLOR_BGR2GRAY)
+        denoised = self.cv2.fastNlMeansDenoising(gray, h=10)
+        clahe = self.cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         contrast = clahe.apply(denoised)
-        thresh = cv2.adaptiveThreshold(
+        thresh = self.cv2.adaptiveThreshold(
             contrast,
             255,
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY,
+            self.cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            self.cv2.THRESH_BINARY,
             31,
             7,
         )
@@ -220,6 +233,7 @@ class IDCardOCR:
             "original": img,
             "processed": thresh,
             "gray": gray,
+            "original_path": image_path,
         }
 
     def extract_text(self, image):
@@ -229,6 +243,7 @@ class IDCardOCR:
                 image.get("processed"),
                 image.get("gray"),
                 image.get("original"),
+                image.get("original_path"),
             ]
         else:
             variants = [image]
