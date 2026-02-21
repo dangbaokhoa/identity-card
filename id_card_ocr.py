@@ -41,7 +41,7 @@ class IDCardQRReader:
         except:
             return ""
     
-    def read_qr_code(self, image_path):
+    def read_qr_code(self, image_path, debug=False):
         """Read QR code from ID card image with multiple preprocessing strategies"""
         print(f"[IDCardQRReader] Reading QR code from: {image_path}")
         
@@ -56,6 +56,9 @@ class IDCardQRReader:
         img = self.cv2.imread(image_path)
         if img is None:
             raise FileNotFoundError(f"Cannot read image: {image_path}")
+        
+        h, w = img.shape[:2]
+        print(f"[IDCardQRReader] Image size: {w}x{h}")
         
         print("[IDCardQRReader] Image loaded, detecting QR code...")
         
@@ -101,16 +104,45 @@ class IDCardQRReader:
         if self.pyzbar:
             for name, variant in variants:
                 print(f"[IDCardQRReader] Trying pyzbar on {name}...")
+                
+                # Save debug images if requested
+                if debug:
+                    debug_path = f"debug_{name}.jpg"
+                    self.cv2.imwrite(debug_path, variant)
+                    print(f"[IDCardQRReader] Saved debug image: {debug_path}")
+                
                 decoded_objects = self.pyzbar.decode(variant)
                 if decoded_objects:
                     qr_data = decoded_objects[0].data.decode('utf-8')
                     print(f"[IDCardQRReader] ✓ QR decoded with pyzbar ({name}): {qr_data[:50]}...")
                     return qr_data
+        else:
+            print("[IDCardQRReader] ⚠ pyzbar not available, will use cv2 only")
         
-        # Fallback to cv2 QR detector on all variants
+        # Try WeChat QR detector (more robust than default cv2 detector)
+        try:
+            wechat_detector = self.cv2.wechat_qrcode_WeChatQRCode()
+            for name, variant in variants:
+                print(f"[IDCardQRReader] Trying WeChat QR on {name}...")
+                
+                # Convert to BGR if grayscale
+                if len(variant.shape) == 2:
+                    variant_bgr = self.cv2.cvtColor(variant, self.cv2.COLOR_GRAY2BGR)
+                else:
+                    variant_bgr = variant
+                
+                res, points = wechat_detector.detectAndDecode(variant_bgr)
+                if res and len(res) > 0 and res[0]:
+                    qr_data = res[0]
+                    print(f"[IDCardQRReader] ✓ QR decoded with WeChat ({name}): {qr_data[:50]}...")
+                    return qr_data
+        except Exception as e:
+            print(f"[IDCardQRReader] WeChat QR detector not available: {e}")
+        
+        # Fallback to standard cv2 QR detector on all variants
         qr_detector = self.cv2.QRCodeDetector()
         for name, variant in variants:
-            print(f"[IDCardQRReader] Trying cv2 on {name}...")
+            print(f"[IDCardQRReader] Trying cv2 standard QR on {name}...")
             # Convert to BGR if grayscale
             if len(variant.shape) == 2:
                 variant = self.cv2.cvtColor(variant, self.cv2.COLOR_GRAY2BGR)
@@ -121,7 +153,15 @@ class IDCardQRReader:
                 return data
         
         print("[IDCardQRReader] ✗ No QR code found after trying all variants")
-        raise ValueError("Không tìm thấy mã QR trên ảnh. Vui lòng chụp rõ mã QR trên thẻ CCCD. Mã QR thường nằm ở góc của thẻ.")
+        print("[IDCardQRReader] Suggestions:")
+        print("  1. Đảm bảo ảnh chụp có mã QR (thẻ CCCD từ 2021 trở lên)")
+        print("  2. Chụp rõ toàn bộ thẻ, không bị mờ hoặc nghiêng")
+        print("  3. Thử chụp lại với ánh sáng tốt hơn")
+        print("  4. Nếu có debug images (debug_*.jpg), kiểm tra xem QR có rõ không")
+        raise ValueError("Không tìm thấy mã QR trên ảnh. Vui lòng kiểm tra:\n"
+                        "✓ Ảnh chụp có mã QR (thẻ CCCD từ 2021+)\n"
+                        "✓ Chụp rõ toàn bộ thẻ\n"
+                        "✓ Ánh sáng tốt, không bị mờ/nghiêng")
     
     def parse_qr_data(self, qr_string):
         """
@@ -170,12 +210,12 @@ class IDCardQRReader:
         
         return data
     
-    def process_image(self, image_path):
+    def process_image(self, image_path, debug=False):
         """
         Main method: read QR and parse data
         """
         print("[IDCardQRReader] Starting QR processing...")
-        qr_data = self.read_qr_code(image_path)
+        qr_data = self.read_qr_code(image_path, debug=debug)
         parsed_data = self.parse_qr_data(qr_data)
         print("[IDCardQRReader] ✓ Processing complete")
         return parsed_data
@@ -231,7 +271,7 @@ if __name__ == "__main__":
         try:
             # Read and parse QR
             print("Reading QR code...")
-            clean_data = qr_reader.process_image(image_file)
+            clean_data = qr_reader.process_image(image_file, debug=True)  # Enable debug mode
             
             # Print to screen
             print("\n--- Extracted Data ---")
