@@ -5,3 +5,6 @@ headless = true
 
 [global]
 developmentMode = false
+
+[client]
+toolbarMode = "viewer"
