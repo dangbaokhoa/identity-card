@@ -39,13 +39,24 @@ class IDCardOCR:
             print("[IDCardOCR] ✗ EasyOCR module not available!")
             raise RuntimeError("EasyOCR chưa khả dụng trong môi trường hiện tại.")
 
-        print("[IDCardOCR] Loading OCR Engine... (this may take 30-60 seconds)")
+        print("[IDCardOCR] Loading OCR Engine... (first time: 2-3 min for model download, then cached)")
+        print("[IDCardOCR] Initializing EasyOCR Reader with Vietnamese + English...")
         try:
-            self.reader = self.easyocr_module.Reader(['vi', 'en'], gpu=False)
-            print("[IDCardOCR] ✓ OCR Engine loaded successfully!")
+            import time
+            start = time.time()
+            self.reader = self.easyocr_module.Reader(
+                ['vi', 'en'], 
+                gpu=False,
+                verbose=True,
+                download_enabled=True
+            )
+            elapsed = time.time() - start
+            print(f"[IDCardOCR] ✓ OCR Engine loaded successfully in {elapsed:.1f}s!")
             return self.reader
         except Exception as e:
             print(f"[IDCardOCR] ✗ Failed to load OCR Reader: {e}")
+            import traceback
+            traceback.print_exc()
             raise
 
     @staticmethod
