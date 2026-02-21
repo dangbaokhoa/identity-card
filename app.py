@@ -10,18 +10,18 @@ import streamlit as st
 from docxtpl import DocxTemplate
 
 
-st.set_page_config(page_title="ID Card OCR", page_icon="🪪", layout="centered")
-st.title("🪪 Ứng dụng OCR CCCD")
-st.caption("Tải mẫu Word + nhiều ảnh CCCD, xem kết quả, sau đó tải tất cả file kết quả.")
+st.set_page_config(page_title="ID Card QR Reader", page_icon="🪪", layout="centered")
+st.title("🪪 Đọc thông tin CCCD từ mã QR")
+st.caption("Tải mẫu Word + ảnh mặt SAU (có QR code) của CCCD, xem kết quả, sau đó tải tất cả file kết quả.")
 
 
 @st.cache_resource
-def get_ocr_engine():
-    print("[APP] Loading OCR engine (cached resource)...")
-    from id_card_ocr import IDCardOCR
-    ocr = IDCardOCR()
-    print("[APP] ✓ OCR engine initialized (Reader will load on first use)")
-    return ocr
+def get_qr_reader():
+    print("[APP] Loading QR Reader (cached resource)...")
+    from id_card_ocr import IDCardQRReader
+    reader = IDCardQRReader()
+    print("[APP] ✓ QR Reader initialized")
+    return reader
 
 
 def generate_docx_from_template(data: dict, template_bytes: bytes) -> bytes:
@@ -46,7 +46,7 @@ def generate_docx_from_template(data: dict, template_bytes: bytes) -> bytes:
                 os.remove(path)
 
 
-def run_ocr_on_upload(uploaded_file):
+def run_qr_on_upload(uploaded_file):
     print(f"[APP] Processing uploaded file: {uploaded_file.name}")
     suffix = os.path.splitext(uploaded_file.name)[1].lower() or ".jpg"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_image:
@@ -54,13 +54,11 @@ def run_ocr_on_upload(uploaded_file):
         temp_image_path = temp_image.name
 
     try:
-        print("[APP] Getting OCR engine...")
-        ocr_engine = get_ocr_engine()
-        print("[APP] Running OCR pipeline...")
-        preprocessed = ocr_engine.preprocess_image(temp_image_path)
-        raw_text = ocr_engine.extract_text(preprocessed)
-        data = ocr_engine.parse_data(raw_text)
-        print(f"[APP] ✓ OCR complete for {uploaded_file.name}")
+        print("[APP] Getting QR reader...")
+        qr_reader = get_qr_reader()
+        print("[APP] Running QR reading...")
+        data = qr_reader.process_image(temp_image_path)
+        print(f"[APP] ✓ QR reading complete for {uploaded_file.name}")
         return data
     except Exception as e:
         print(f"[APP] ✗ Error processing {uploaded_file.name}: {e}")
@@ -102,23 +100,23 @@ uploaded_template = st.file_uploader(
     key="template_required",
 )
 
-st.subheader("2) Tải ảnh CCCD")
+st.subheader("2) Tải ảnh mặt SAU CCCD (có mã QR)")
 uploaded_images = st.file_uploader(
-    "Tải lên một hoặc nhiều ảnh CCCD",
+    "Tải lên một hoặc nhiều ảnh mặt SAU CCCD (có QR code)",
     type=["jpg", "jpeg", "png", "webp"],
     accept_multiple_files=True,
     key="batch_images",
 )
 
 can_extract = uploaded_template is not None and uploaded_images
-if st.button("Trích xuất thông tin", type="primary", disabled=not can_extract):
-    print(f"[APP] Starting batch OCR for {len(uploaded_images)} images...")
-    with st.spinner("Đang chạy OCR cho các ảnh..."):
+if st.button("Đọc mã QR", type="primary", disabled=not can_extract):
+    print(f"[APP] Starting batch QR reading for {len(uploaded_images)} images...")
+    with st.spinner("Đang đọc mã QR cho các ảnh..."):
         results = []
         for idx, image_file in enumerate(uploaded_images):
             try:
                 print(f"[APP] Processing image {idx+1}/{len(uploaded_images)}: {image_file.name}")
-                extracted = run_ocr_on_upload(image_file)
+                extracted = run_qr_on_upload(image_file)
                 extracted = apply_template_aliases(extracted)
                 results.append({
                     "image_name": image_file.name,
@@ -128,12 +126,12 @@ if st.button("Trích xuất thông tin", type="primary", disabled=not can_extrac
                 print(f"[APP] ✗ Failed to process {image_file.name}: {error}")
                 st.error(f"Không thể xử lý ảnh {image_file.name}: {error}")
         st.session_state["batch_results"] = results
-        print(f"[APP] ✓ Batch OCR complete: {len(results)} successful")
+        print(f"[APP] ✓ Batch QR reading complete: {len(results)} successful")
 
 if uploaded_template is None:
     st.info("Vui lòng tải mẫu Word để tiếp tục.")
 elif not uploaded_images:
-    st.info("Vui lòng tải lên ít nhất một ảnh CCCD để tiếp tục.")
+    st.info("Vui lòng tải lên ít nhất một ảnh mặt SAU CCCD (có QR code) để tiếp tục.")
 
 if st.session_state["batch_results"]:
     st.subheader("3) Xem và chỉnh kết quả")
@@ -147,16 +145,17 @@ if st.session_state["batch_results"]:
         with st.expander(f"Ảnh {idx + 1}: {image_name}", expanded=(idx == 0)):
             field_col_1, field_col_2 = st.columns(2)
             with field_col_1:
+                data["no"] = st.text_input("Số CCCD", value=data.get("no", ""), key=f"{key_prefix}_no")
+                data["old_id"] = st.text_input("Số CMND cũ", value=data.get("old_id", ""), key=f"{key_prefix}_old_id")
                 data["fullname"] = st.text_input("Họ và tên", value=data.get("fullname", ""), key=f"{key_prefix}_fullname")
                 data["date_of_birth"] = st.text_input("Ngày sinh", value=data.get("date_of_birth", ""), key=f"{key_prefix}_dob")
-                data["sex"] = st.text_input("Giới tính", value=data.get("sex", ""), key=f"{key_prefix}_sex")
             with field_col_2:
+                data["sex"] = st.text_input("Giới tính", value=data.get("sex", ""), key=f"{key_prefix}_sex")
                 data["nationality"] = st.text_input("Quốc tịch", value=data.get("nationality", ""), key=f"{key_prefix}_nationality")
-                data["place_of_origin"] = st.text_input("Quê quán", value=data.get("place_of_origin", ""), key=f"{key_prefix}_origin")
-                data["no"] = st.text_input("Số", value=data.get("no", ""), key=f"{key_prefix}_no")
+                data["issue_date"] = st.text_input("Ngày cấp", value=data.get("issue_date", ""), key=f"{key_prefix}_issue")
+                data["expiry_date"] = st.text_input("Có giá trị đến", value=data.get("expiry_date", ""), key=f"{key_prefix}_expiry")
 
             data["residence"] = st.text_input("Nơi thường trú", value=data.get("residence", ""), key=f"{key_prefix}_residence")
-            data["expiry_date"] = st.text_input("Có giá trị đến", value=data.get("expiry_date", ""), key=f"{key_prefix}_expiry")
             item["data"] = apply_template_aliases(data)
 
     st.subheader("4) Tải file kết quả")

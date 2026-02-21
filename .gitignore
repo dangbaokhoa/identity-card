@@ -8,3 +8,4 @@ __pycache__/
 result.docx
 *.tmp
 images/
+token.txt

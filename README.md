@@ -1,5 +1,5 @@
 ---
-title: Vietnamese ID Card OCR
+title: Vietnamese ID Card QR Reader
 emoji: 🪪
 colorFrom: blue
 colorTo: green
@@ -10,13 +10,14 @@ pinned: false
 license: apache-2.0
 ---
 
-# Vietnamese ID Card OCR
+# Vietnamese ID Card QR Reader
 
-Ứng dụng trích xuất thông tin từ Căn cước công dân Việt Nam sử dụng OCR (EasyOCR).
+Ứng dụng đọc thông tin từ mã QR trên Căn cước công dân Việt Nam.
 
 ## Tính năng
 
-- Trích xuất tự động các trường: Họ tên, Số CCCD, Ngày sinh, Giới tính, Quốc tịch, Quê quán, Nơi thường trú, Có giá trị đến
+- Đọc mã QR từ mặt sau thẻ CCCD (nhanh và chính xác 100%)
+- Trích xuất tự động: Số CCCD, Số CMND cũ, Họ tên, Ngày sinh, Giới tính, Địa chỉ thường trú, Ngày cấp
 - Xử lý nhiều ảnh cùng lúc (batch processing)
 - Tải mẫu Word và tự động điền thông tin
 - Tải kết quả dưới dạng file ZIP
@@ -24,14 +25,18 @@ license: apache-2.0
 ## Cách sử dụng
 
 1. Tải lên file mẫu Word (.docx) với các placeholder: `{{ ho_va_ten }}`, `{{ so }}`, v.v.
-2. Tải lên một hoặc nhiều ảnh CCCD
-3. Nhấn "Trích xuất thông tin"
+2. **Chụp/tải ảnh MẶT SAU CCCD** (mặt có mã QR)
+3. Nhấn "Đọc mã QR"
 4. Xem và chỉnh sửa kết quả
 5. Tạo và tải file kết quả
 
+## Lưu ý quan trọng
+
+⚠️ **Phải chụp mặt SAU** (mặt có mã QR) của thẻ CCCD, không phải mặt trước!
+
 ## Công nghệ
 
-- EasyOCR: Vietnamese + English text recognition
-- OpenCV: Image preprocessing
+- pyzbar: QR code detection and decoding
+- OpenCV: Image processing
 - Streamlit: Web interface
 - python-docx: Word document generation

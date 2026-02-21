@@ -1,9 +1,7 @@
-easyocr
+pyzbar
 opencv-python-headless
 streamlit
 docxtpl
-torch
-torchvision
 numpy
 python-docx
 Pillow
