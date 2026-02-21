@@ -1,0 +1,9 @@
+easyocr
+opencv-python
+streamlit
+docxtpl
+torch
+torchvision
+numpy
+python-docx
+Pillow
