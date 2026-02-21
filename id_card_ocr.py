@@ -1,4 +1,3 @@
-import easyocr
 import re
 from collections import Counter
 from docxtpl import DocxTemplate
@@ -7,14 +6,31 @@ import unicodedata
 
 class IDCardOCR:
     def __init__(self):
-        print("Loading OCR Engine... (this may take a moment)")
-        self.reader = easyocr.Reader(['vi', 'en'], gpu=False)
+        self.reader = None
+        self.easyocr_module = None
+        try:
+            import easyocr as easyocr_module
+            self.easyocr_module = easyocr_module
+        except Exception:
+            self.easyocr_module = None
+
         self.cv2 = None
         try:
             import cv2 as cv2_module
             self.cv2 = cv2_module
         except Exception:
             self.cv2 = None
+
+    def _get_reader(self):
+        if self.reader is not None:
+            return self.reader
+
+        if self.easyocr_module is None:
+            raise RuntimeError("EasyOCR chưa khả dụng trong môi trường hiện tại.")
+
+        print("Loading OCR Engine... (this may take a moment)")
+        self.reader = self.easyocr_module.Reader(['vi', 'en'], gpu=False)
+        return self.reader
 
     @staticmethod
     def _normalize_text(text):
@@ -237,6 +253,7 @@ class IDCardOCR:
         }
 
     def extract_text(self, image):
+        reader = self._get_reader()
         variants = []
         if isinstance(image, dict):
             variants = [
@@ -252,7 +269,7 @@ class IDCardOCR:
         for variant in variants:
             if variant is None:
                 continue
-            result = self.reader.readtext(
+            result = reader.readtext(
                 variant,
                 detail=1,
                 paragraph=False,
