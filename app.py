@@ -6,8 +6,6 @@ from io import BytesIO
 import streamlit as st
 from docxtpl import DocxTemplate
 
-from id_card_ocr import IDCardOCR
-
 
 st.set_page_config(page_title="ID Card OCR", page_icon="🪪", layout="centered")
 st.title("🪪 Ứng dụng OCR CCCD")
@@ -16,6 +14,7 @@ st.caption("Tải mẫu Word + nhiều ảnh CCCD, xem kết quả, sau đó t�
 
 @st.cache_resource
 def get_ocr_engine():
+    from id_card_ocr import IDCardOCR
     return IDCardOCR()
 
 
@@ -103,12 +102,15 @@ if st.button("Trích xuất thông tin", type="primary", disabled=not can_extrac
     with st.spinner("Đang chạy OCR cho các ảnh..."):
         results = []
         for image_file in uploaded_images:
-            extracted = run_ocr_on_upload(image_file)
-            extracted = apply_template_aliases(extracted)
-            results.append({
-                "image_name": image_file.name,
-                "data": extracted,
-            })
+            try:
+                extracted = run_ocr_on_upload(image_file)
+                extracted = apply_template_aliases(extracted)
+                results.append({
+                    "image_name": image_file.name,
+                    "data": extracted,
+                })
+            except Exception as error:
+                st.error(f"Không thể xử lý ảnh {image_file.name}: {error}")
         st.session_state["batch_results"] = results
 
 if uploaded_template is None:
