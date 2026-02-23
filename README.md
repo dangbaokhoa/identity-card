@@ -21,6 +21,7 @@ license: apache-2.0
 - Xử lý nhiều ảnh cùng lúc (batch processing)
 - Tải mẫu Word và tự động điền thông tin
 - Tải kết quả dưới dạng file ZIP
+- Đối soát số TKHQ từ file Excel: đọc cột B từ dòng `Số TKHQ hàng hóa nhập khẩu đã thông quan` đến `Tổng cộng` và rà soát trùng với file ngày trước
 
 ## Cách sử dụng
 
